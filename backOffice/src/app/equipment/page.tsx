@@ -6,9 +6,8 @@ import PageTitle from '@/components/ui/PageTitle';
 import { DataTable } from '@/components/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { DeleteButton } from '@/components/delete-button';
-import { AddButton } from '@/components/component/add-button';
 import withAuth from '@/components/withAuth';
-import UpdateInstallers from '@/components/component/SaveInstallers';
+import SaveEquipment from '@/components/component/SaveEquipment';
 
 type Equipment = {
   id: number;
@@ -65,7 +64,7 @@ const Equipment = () => {
   return (
     <div className="flex flex-col gap-5 w-full">
       <PageTitle title="Equipment" />
-      <UpdateInstallers />
+      <SaveEquipment />
       <DataTable columns={columns} data={data} />
     </div>
   );
