@@ -12,7 +12,6 @@ import withAuth from "@/components/component/withAuth";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { SelectSingleEventHandler } from "react-day-picker";
-import { set } from "date-fns";
 
 interface Installer {
   id: number;
@@ -25,25 +24,6 @@ interface Equipment {
   designation: string;
 }
 
-function parseJwt(token: string) {
-  try {
-    const base64Url = token.split(".")[1];
-    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split("")
-        .map((c) => {
-          return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
-        })
-        .join("")
-    );
-    return JSON.parse(jsonPayload);
-  } catch (e) {
-    console.error("Invalid token", e);
-    return null;
-  }
-}
-
 export function Reservation() {
   const [loading, setLoading] = useState(true);
   const [installers, setInstallers] = useState<Installer[]>([]);
@@ -51,43 +31,38 @@ export function Reservation() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedEquipment, setSelectedEquipment] = useState<number[]>([]);
   const [selectedInstallers, setSelectedInstallers] = useState<number[]>([]);
-  const [client, setClient] = useState<any>(null); // in order to get the client id from the token
 
   useEffect(() => {
-    axios
-      .get<Installer[]>("http://localhost:8080/api/installateur/getAll")
-      .then((response) => setInstallers(response.data))
-      .catch((error) => console.error("Error fetching installers:", error));
+    const fetchInstallers = async () => {
+      try {
+        const response = await axios.get<Installer[]>("http://localhost:8080/api/installateur/getAll");
+        setInstallers(response.data);
+      } catch (error) {
+        console.error("Error fetching installers:", error);
+      }
+    };
 
-    axios
-      .get<Equipment[]>("http://localhost:8080/api/equipement/getAll")
-      .then((response) => setEquipment(response.data))
-      .catch((error) => console.error("Error fetching equipment:", error));
+    const fetchEquipment = async () => {
+      try {
+        const response = await axios.get<Equipment[]>("http://localhost:8080/api/equipement/getAll");
+        setEquipment(response.data);
+      } catch (error) {
+        console.error("Error fetching equipment:", error);
+      }
+    };
 
-    // const token = localStorage.getItem("token");
-    // if (token) {
-    //   const decodedToken = parseJwt(token);
-    //   console.log("decodedToken", decodedToken);
-
-    //   if (decodedToken && decodedToken.sub) {
-    //     setClient({email: decodedToken.sub});
-    //     console.log("client", decodedToken.client);
-    //   }
-    //   setLoading(false);
-    // }
+    fetchInstallers();
+    fetchEquipment();
+    setLoading(false);
   }, []);
 
-  const handleDateChange: SelectSingleEventHandler = (
-    day: SetStateAction<Date | undefined>
-  ) => {
+  const handleDateChange: SelectSingleEventHandler = (day: SetStateAction<Date | undefined>) => {
     if (day instanceof Date) {
       setSelectedDate(day);
     }
   };
 
-  const handleEquipmentChange = (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleEquipmentChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(event.target.value, 10);
     setSelectedEquipment((prevState) => {
       if (prevState.includes(value)) {
@@ -98,9 +73,7 @@ export function Reservation() {
     });
   };
 
-  const handleInstallerChange = (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleInstallerChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(event.target.value, 10);
     setSelectedInstallers((prevState) => {
       if (prevState.includes(value)) {
@@ -111,111 +84,166 @@ export function Reservation() {
     });
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (client) {
-      axios
-        .post("http://localhost:8080/api/reservation/create", {
-          date: selectedDate?.toISOString(),
-          equipmentIds: selectedEquipment,
-          installerIds: selectedInstallers,
-          clientId: client.id,
-        })
-        .then((response) => {
-          console.log("Reservation created:", response.data);
-          alert("Reservation created successfully");
-        })
-        .catch((error) => {
-          console.error("Error creating reservation:", error);
-        });
-    } else {
-      console.error("Client is not defined");
+  
+    // Get the token from localStorage
+    const token = localStorage.getItem("token");
+    if (!token) {
+      console.error("No token found, redirecting to login.");
+      window.location.href = "/";
+      return;
+    }
+  
+    let email: string | null = null;
+  
+    try {
+      // Decode the token to get the email
+      const base64Url = token.split(".")[1];
+      const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split("")
+          .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+          .join("")
+      );
+  
+      const decodedToken: { sub: string } = JSON.parse(jsonPayload);
+      console.log("Decoded token:", decodedToken);
+      email = decodedToken.sub;
+      console.log("Decoded email:", email);
+    } catch (error) {
+      console.error("Error parsing token:", error);
+      window.location.href = "/";
+      return;
+    }
+  
+    if (!email) {
+      console.error("Email is undefined");
+      return;
+    }
+  
+    // Fetch user data using the email
+    try {
+      const response = await axios.get(`http://localhost:8080/api/client/getByEmail/${email}`);
+      const userData = response.data;
+      
+      // Include user data in the reservation data
+      const reservationData = {
+        dateReservation: selectedDate,
+        equipements: selectedEquipment.map(id => ({ id })),
+        installateurs: selectedInstallers.map(id => ({ id })),
+        client: {
+          nom: userData.nom,
+          prenom: userData.prenom,
+          email: userData.email,  // only this email is needed
+          adresse: userData.adresse,
+          telephone: userData.telephone,
+          cin: userData.cin,
+        }
+      };
+  
+      // Submit reservation request
+      await axios.post("http://localhost:8080/api/reservation/save", reservationData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      
+      });
+      alert("Reservation successful!");
+      console.log(reservationData);
+    } catch (error) {
+      console.error("Error fetching user data or submitting reservation:", error);
+      alert("Reservation failed. Please try again.");
     }
   };
 
-  // if (loading) {
-  //   return <div>Loading...</div>;
-  // }
   
-    return (
-      <div className="min-h-screen bg-white">
-        <div className="max-w-2xl mx-auto p-6 sm:p-8 bg-white text-black">
-          <h1 className="text-3xl font-bold mb-6">Reserve Sport Equipment</h1>
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            <div>
-              <label className="block font-medium mb-1" htmlFor="date">
-                Date of Reservation
-              </label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    className="w-full justify-start text-left font-normal bg-white text-black border-black"
-                    id="date"
-                    variant="outline"
-                  >
-                    <CalendarDaysIcon className="mr-1 h-4 w-4 -translate-x-1" />
-                    {selectedDate ? selectedDate.toDateString() : " "}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent
-                  align="start"
-                  className="w-auto p-0 bg-white text-black"
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  return (
+    <div className="min-h-screen bg-white">
+      <div className="max-w-2xl mx-auto p-6 sm:p-8 bg-white text-black">
+        <h1 className="text-3xl font-bold mb-6">Reserve Sport Equipment</h1>
+        <form className="space-y-6" onSubmit={handleSubmit}>
+          <div>
+            <label className="block font-medium mb-1" htmlFor="date">
+              Date of Reservation
+            </label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  className="w-full justify-start text-left font-normal bg-white text-black border-black"
+                  id="date"
+                  variant="outline"
                 >
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={handleDateChange}
+                  <CalendarDaysIcon className="mr-1 h-4 w-4 -translate-x-1" />
+                  {selectedDate ? selectedDate.toDateString() : " "}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                className="w-auto p-0 bg-white text-black"
+              >
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={handleDateChange}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div>
+            <label className="block font-medium mb-1">Equipment</label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {equipment.map((item) => (
+                <Label key={item.id} className="flex items-center space-x-2">
+                  <Input
+                    type="checkbox"
+                    value={item.id}
+                    className="small-checkbox"
+                    onChange={handleEquipmentChange}
+                    checked={selectedEquipment.includes(item.id)}
                   />
-                </PopoverContent>
-              </Popover>
+                  <span>{item.designation}</span>
+                </Label>
+              ))}
             </div>
-            <div>
-              <label className="block font-medium mb-1">Equipment</label>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {equipment.map((item) => (
-                  <Label key={item.id} className="flex items-center space-x-2">
-                    <Input
-                      type="checkbox"
-                      value={item.id}
-                      className="small-checkbox"
-                      onChange={handleEquipmentChange}
-                      checked={selectedEquipment.includes(item.id)}
-                    />
-                    <span>{item.designation}</span>
-                  </Label>
-                ))}
-              </div>
+          </div>
+          <div>
+            <label className="block font-medium mb-1">Installers</label>
+            <div className="grid grid-cols-3 gap-4">
+              {installers.map((installer) => (
+                <Label
+                  key={installer.id}
+                  className="flex items-center space-x-2"
+                >
+                  <Input
+                    type="checkbox"
+                    value={installer.id}
+                    className="small-checkbox"
+                    onChange={handleInstallerChange}
+                    checked={selectedInstallers.includes(installer.id)}
+                  />
+                  <span>
+                    {installer.nom} {installer.prenom}
+                  </span>
+                </Label>
+              ))}
             </div>
-            <div>
-              <label className="block font-medium mb-1">Installers</label>
-              <div className="grid grid-cols-3 gap-4">
-                {installers.map((installer) => (
-                  <Label
-                    key={installer.id}
-                    className="flex items-center space-x-2"
-                  >
-                    <Input
-                      type="checkbox"
-                      value={installer.id}
-                      className="small-checkbox"
-                      onChange={handleInstallerChange}
-                      checked={selectedInstallers.includes(installer.id)}
-                    />
-                    <span>
-                      {installer.nom} {installer.prenom}
-                    </span>
-                  </Label>
-                ))}
-              </div>
-            </div>
-            <Button className="w-full bg-black text-white" type="submit">
-              Reserve
-            </Button>
-          </form>
-        </div>
+          </div>
+          <Button className="w-full bg-black text-white" type="submit">
+            Reserve
+          </Button>
+        </form>
       </div>
-    );
-  };
+    </div>
+  );
+}
 
 function CalendarDaysIcon(props: React.SVGProps<SVGSVGElement>) {
   return (

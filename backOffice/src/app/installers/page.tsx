@@ -5,8 +5,10 @@ import PageTitle from "@/components/ui/PageTitle";
 import { DataTable } from '@/components/DataTable';
 import { ColumnDef } from "@tanstack/react-table";
 import { DeleteButton } from '@/components/delete-button';
+import { UpdateButton } from '@/components/ui/UpdateButton';
 import withAuth from '@/components/withAuth';
 import SaveInstallers from '@/components/component/SaveInstallers';
+import { UpdateModal } from '@/components/component/UpdateModal';
 
 type Payment = {
   id: string;
@@ -17,10 +19,9 @@ type Payment = {
   telephone: string;
 };
 
-type Props = {};
-
 function InstallersPage() {
   const [data, setData] = useState<Payment[]>([]);
+  const [selectedInstaller, setSelectedInstaller] = useState<Payment | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -53,6 +54,28 @@ function InstallersPage() {
     }
   };
 
+  const handleUpdate = async (updatedInstaller: any) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error("No token found");
+        return;
+      }
+      console.log("Token:", token); // Log token to verify it is correct
+  
+      await axios.post(`http://localhost:8080/api/installateur/update/${updatedInstaller.id}`, updatedInstaller, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setData(data.map(item => (item.id === updatedInstaller.id ? updatedInstaller : item)));
+      setSelectedInstaller(null);
+    } catch (error) {
+      console.error("Error updating item:", error);
+    }
+  };
+  
+
   const columns: ColumnDef<Payment>[] = [
     {
       accessorKey: "id",
@@ -81,16 +104,27 @@ function InstallersPage() {
     {
       accessorKey: "actions",
       header: "Actions",
-      cell: ({ row }) => <DeleteButton onClick={() => handleDelete(row.original.id)} />,
+      cell: ({ row }) => (
+        <div className="flex gap-2">
+          <DeleteButton onClick={() => handleDelete(row.original.id)} />
+          <UpdateButton onClick={() => setSelectedInstaller(row.original)} />
+        </div>
+      ),
     },
   ];
 
   return (
     <div className="flex flex-col gap-5 w-full">
       <PageTitle title="Installers" />
-      <SaveInstallers/>
-      {/* <AddButton/> */}
+      <SaveInstallers />
       <DataTable columns={columns} data={data} />
+      {selectedInstaller && (
+        <UpdateModal
+          installer={selectedInstaller}
+          onClose={() => setSelectedInstaller(null)}
+          onUpdate={handleUpdate}
+        />
+      )}
     </div>
   );
 }

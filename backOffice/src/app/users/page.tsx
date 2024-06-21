@@ -15,7 +15,6 @@ type Payment = {
   adresse: string;
   cin: string;
   telephone: string;
-  reservations: string[];
 };
 
 type Props = {};
@@ -83,10 +82,6 @@ function UsersPage() {
     {
       accessorKey: "telephone",
       header: "Telephone",
-    },
-    {
-      accessorKey: "reservations",
-      header: "Reservations",
     },
     {
       accessorKey: "actions",

@@ -81,13 +81,13 @@ const OrdersPage = () => {
     axios.get("http://localhost:8080/api/reservation/getAll", { headers: { Authorization: `Bearer ${token}` } })
       .then(response => {
         const transformedData = response.data.map((reservation: any) => ({
-          id: reservation?.id || 0, // Handle potential null or undefined values
-          nom: reservation?.client?.nom || 'N/A', // Provide a default value
-          prenom: reservation?.client?.prenom || 'N/A', // Provide a default value
-          dateReservation: reservation?.dateReservation || 'N/A', // Provide a default value
-          equipements: reservation?.reservationDetails?.map((detail: any) => detail?.equipement?.designation || 'N/A') || [],
-          installateurs: reservation?.installateurs?.map((inst: any) => ({ nom: inst?.nom || 'N/A', prenom: inst?.prenom || 'N/A' })) || [],
-          status: reservation?.status || 'N/A' // Provide a default value
+          id: reservation.id || 0, 
+          nom: reservation.client?.nom || 'N/A', 
+          prenom: reservation.client?.prenom || 'N/A', 
+          dateReservation: reservation.dateReservation || 'N/A', 
+          equipements: reservation.equipements.map((equip: any) => equip.designation) || [],
+          installateurs: reservation.installateurs.map((inst: any) => ({ nom: inst.nom || 'N/A', prenom: inst.prenom || 'N/A' })) || [],
+          status: reservation.status || 'N/A'
         }));
         setData(transformedData);
       })
