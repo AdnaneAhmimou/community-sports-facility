@@ -1,4 +1,5 @@
 'use client';
+
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import PageTitle from "@/components/ui/PageTitle";
@@ -40,6 +41,10 @@ function InstallersPage() {
     fetchData();
   }, []);
 
+  const handleAdd = (newInstaller: Payment) => {
+    setData(prevData => [...prevData, newInstaller]);
+  };
+
   const handleDelete = async (id: string) => {
     try {
       const token = localStorage.getItem('token');
@@ -54,15 +59,9 @@ function InstallersPage() {
     }
   };
 
-  const handleUpdate = async (updatedInstaller: any) => {
+  const handleUpdate = async (updatedInstaller: Payment) => {
     try {
       const token = localStorage.getItem('token');
-      if (!token) {
-        console.error("No token found");
-        return;
-      }
-      console.log("Token:", token); // Log token to verify it is correct
-  
       await axios.post(`http://localhost:8080/api/installateur/update/${updatedInstaller.id}`, updatedInstaller, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -74,7 +73,6 @@ function InstallersPage() {
       console.error("Error updating item:", error);
     }
   };
-  
 
   const columns: ColumnDef<Payment>[] = [
     {
@@ -116,7 +114,7 @@ function InstallersPage() {
   return (
     <div className="flex flex-col gap-5 w-full">
       <PageTitle title="Installers" />
-      <SaveInstallers />
+      <SaveInstallers onAdd={handleAdd} />
       <DataTable columns={columns} data={data} />
       {selectedInstaller && (
         <UpdateModal

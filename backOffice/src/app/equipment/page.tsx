@@ -31,6 +31,10 @@ const Equipment = () => {
     fetchData();
   }, []);
 
+  const handleAdd = (newEquipment: Equipment) => {
+    setData(prevData => [...prevData, newEquipment]);
+  };
+
   const handleDelete = async (equipment: Equipment) => {
     try {
       await axios.delete(`http://localhost:8080/api/equipement/delete/${equipment.id}`);
@@ -64,7 +68,7 @@ const Equipment = () => {
   return (
     <div className="flex flex-col gap-5 w-full">
       <PageTitle title="Equipment" />
-      <SaveEquipment />
+      <SaveEquipment onAdd={handleAdd} />
       <DataTable columns={columns} data={data} />
     </div>
   );

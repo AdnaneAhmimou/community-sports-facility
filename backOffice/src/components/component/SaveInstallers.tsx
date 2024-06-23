@@ -4,7 +4,16 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { AddButton } from "./add-button";
 
-export default function SaveInstallers() {
+type Payment = {
+  id: string;
+  nom: string;
+  prenom: string;
+  email: string;
+  adresse: string;
+  telephone: string;
+};
+
+export default function SaveInstallers({ onAdd }: { onAdd: (installer: Payment) => void }) {
   const [installer, setInstaller] = useState({
     nom: '',
     prenom: '',
@@ -24,16 +33,22 @@ export default function SaveInstallers() {
   const handleSubmit = async () => {
     try {
       const token = localStorage.getItem('token');
-      await axios.post("http://localhost:8080/api/installateur/save", installer, {
+      const response = await axios.post("http://localhost:8080/api/installateur/save", installer, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-      console.log("Installer saved successfully:", installer);
-      // Optionally, reset the form or handle success message here
+      console.log("Installer saved successfully:", response.data);
+      onAdd(response.data); // Add the new installer to the list
+      setInstaller({
+        nom: '',
+        prenom: '',
+        adresse: '',
+        email: '',
+        telephone: ''
+      });
     } catch (error) {
       console.error("Error saving installer:", error);
-      // Optionally, handle error message here
     }
   };
 
